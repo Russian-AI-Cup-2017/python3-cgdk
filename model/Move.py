@@ -1,3 +1,8 @@
+from math import *
+from model.ActionType import ActionType
+from model.VehicleType import VehicleType
+
+
 class Move:
     def __init__(self):
         self.action = None
@@ -9,6 +14,7 @@ class Move:
         self.x = 0.0
         self.y = 0.0
         self.angle = 0.0
+        self.factor = 0.0
         self.max_speed = 0.0
         self.max_angular_speed = 0.0
         self.vehicle_type = None

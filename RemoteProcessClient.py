@@ -47,7 +47,7 @@ class RemoteProcessClient:
 
     def write_protocol_version_message(self):
         self.write_enum(RemoteProcessClient.MessageType.PROTOCOL_VERSION)
-        self.write_int(1)
+        self.write_int(2)
 
     def read_team_size_message(self):
         message_type = self.read_enum(RemoteProcessClient.MessageType)
@@ -283,6 +283,7 @@ class RemoteProcessClient:
             self.write_double(move.x)
             self.write_double(move.y)
             self.write_double(move.angle)
+            self.write_double(move.factor)
             self.write_double(move.max_speed)
             self.write_double(move.max_angular_speed)
             self.write_enum(move.vehicle_type)
