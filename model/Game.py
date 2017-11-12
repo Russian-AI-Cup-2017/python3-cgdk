@@ -22,7 +22,9 @@ class Game:
                  fighter_ground_attack_range, fighter_aerial_attack_range, fighter_ground_damage, fighter_aerial_damage,
                  fighter_ground_defence, fighter_aerial_defence, fighter_attack_cooldown_ticks, fighter_production_cost,
                  max_facility_capture_points, facility_capture_points_per_vehicle_per_tick, facility_width,
-                 facility_height):
+                 facility_height, base_tactical_nuclear_strike_cooldown,
+                 tactical_nuclear_strike_cooldown_decrease_per_control_center, max_tactical_nuclear_strike_damage,
+                 tactical_nuclear_strike_radius, tactical_nuclear_strike_delay):
         self.random_seed = random_seed
         self.tick_count = tick_count
         self.world_width = world_width
@@ -112,3 +114,8 @@ class Game:
         self.facility_capture_points_per_vehicle_per_tick = facility_capture_points_per_vehicle_per_tick
         self.facility_width = facility_width
         self.facility_height = facility_height
+        self.base_tactical_nuclear_strike_cooldown = base_tactical_nuclear_strike_cooldown
+        self.tactical_nuclear_strike_cooldown_decrease_per_control_center = tactical_nuclear_strike_cooldown_decrease_per_control_center
+        self.max_tactical_nuclear_strike_damage = max_tactical_nuclear_strike_damage
+        self.tactical_nuclear_strike_radius = tactical_nuclear_strike_radius
+        self.tactical_nuclear_strike_delay = tactical_nuclear_strike_delay

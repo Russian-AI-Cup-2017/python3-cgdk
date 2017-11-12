@@ -47,7 +47,7 @@ class RemoteProcessClient:
 
     def write_protocol_version_message(self):
         self.write_enum(RemoteProcessClient.MessageType.PROTOCOL_VERSION)
-        self.write_int(2)
+        self.write_int(3)
 
     def read_team_size_message(self):
         message_type = self.read_enum(RemoteProcessClient.MessageType)
@@ -148,7 +148,8 @@ class RemoteProcessClient:
             self.read_int(), self.read_int(), self.read_int(), self.read_int(), self.read_int(), self.read_int(),
             self.read_double(), self.read_double(), self.read_double(), self.read_double(), self.read_int(),
             self.read_int(), self.read_int(), self.read_int(), self.read_int(), self.read_int(), self.read_double(),
-            self.read_double(), self.read_double(), self.read_double()
+            self.read_double(), self.read_double(), self.read_double(), self.read_int(), self.read_int(),
+            self.read_double(), self.read_double(), self.read_int()
         )
 
     def write_game(self, game):
@@ -246,6 +247,11 @@ class RemoteProcessClient:
             self.write_double(game.facility_capture_points_per_vehicle_per_tick)
             self.write_double(game.facility_width)
             self.write_double(game.facility_height)
+            self.write_int(game.base_tactical_nuclear_strike_cooldown)
+            self.write_int(game.tactical_nuclear_strike_cooldown_decrease_per_control_center)
+            self.write_double(game.max_tactical_nuclear_strike_damage)
+            self.write_double(game.tactical_nuclear_strike_radius)
+            self.write_int(game.tactical_nuclear_strike_delay)
 
     def read_games(self):
         game_count = self.read_int()
@@ -288,6 +294,7 @@ class RemoteProcessClient:
             self.write_double(move.max_angular_speed)
             self.write_enum(move.vehicle_type)
             self.write_long(move.facility_id)
+            self.write_long(move.vehicle_id)
 
     def write_moves(self, moves):
         if moves is None:
@@ -307,7 +314,10 @@ class RemoteProcessClient:
         if flag == 127:
             return self.previous_player_by_id[self.read_long()]
 
-        player = Player(self.read_long(), self.read_boolean(), self.read_boolean(), self.read_int(), self.read_int())
+        player = Player(
+            self.read_long(), self.read_boolean(), self.read_boolean(), self.read_int(), self.read_int(),
+            self.read_int(), self.read_long(), self.read_int(), self.read_double(), self.read_double()
+        )
         self.previous_player_by_id[player.id] = player
         return player
 
@@ -322,6 +332,11 @@ class RemoteProcessClient:
             self.write_boolean(player.strategy_crashed)
             self.write_int(player.score)
             self.write_int(player.remaining_action_cooldown_ticks)
+            self.write_int(player.remaining_nuclear_strike_cooldown_ticks)
+            self.write_long(player.next_nuclear_strike_vehicle_id)
+            self.write_int(player.next_nuclear_strike_tick_index)
+            self.write_double(player.next_nuclear_strike_x)
+            self.write_double(player.next_nuclear_strike_y)
 
     def read_players(self):
         player_count = self.read_int()

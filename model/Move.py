@@ -19,3 +19,4 @@ class Move:
         self.max_angular_speed = 0.0
         self.vehicle_type = None
         self.facility_id = -1
+        self.vehicle_id = -1
