@@ -1,8 +1,9 @@
+from types import SimpleNamespace
 from model.FacilityType import FacilityType
 from model.VehicleType import VehicleType
 
 
-class Facility:
+class Facility(SimpleNamespace):
     def __init__(self, id, type: (None, FacilityType), owner_player_id, left, top, capture_points,
                  vehicle_type: (None, VehicleType), production_progress):
         self.id = id
