@@ -1,4 +1,7 @@
-class Player:
+from types import SimpleNamespace
+
+
+class Player(SimpleNamespace):
     def __init__(self, id, me, strategy_crashed, score, remaining_action_cooldown_ticks,
                  remaining_nuclear_strike_cooldown_ticks, next_nuclear_strike_vehicle_id,
                  next_nuclear_strike_tick_index, next_nuclear_strike_x, next_nuclear_strike_y):

@@ -1,4 +1,7 @@
-class VehicleUpdate:
+from types import SimpleNamespace
+
+
+class VehicleUpdate(SimpleNamespace):
     def __init__(self, id, x, y, durability, remaining_attack_cooldown_ticks, selected, groups):
         self.id = id
         self.x = x
