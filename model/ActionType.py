@@ -1,4 +1,7 @@
-class ActionType:
+from enum import IntEnum
+
+
+class ActionType(IntEnum):
     NONE = 0
     CLEAR_AND_SELECT = 1
     ADD_TO_SELECTION = 2
