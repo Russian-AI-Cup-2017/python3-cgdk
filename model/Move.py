@@ -1,8 +1,3 @@
-from math import *
-from model.ActionType import ActionType
-from model.VehicleType import VehicleType
-
-
 class Move:
     def __init__(self):
         self.action = None
