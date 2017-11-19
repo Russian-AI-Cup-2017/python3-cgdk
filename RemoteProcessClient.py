@@ -15,8 +15,8 @@ from model.World import World
 
 
 class RemoteProcessClient:
+    BUFFER_SIZE_BYTES = 1 << 20
     LITTLE_ENDIAN_BYTE_ORDER = True
-
     BYTE_ORDER_FORMAT_STRING = "<" if LITTLE_ENDIAN_BYTE_ORDER else ">"
 
     BYTE_FORMAT_STRING = BYTE_ORDER_FORMAT_STRING + "b"
@@ -33,6 +33,9 @@ class RemoteProcessClient:
         self.socket = _socket.socket()
         self.socket.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, True)
         self.socket.connect((host, port))
+
+        self.read_buffer = bytes()
+        self.read_index = 0
 
         self.previous_players = None
         self.previous_player_by_id = {}
@@ -110,11 +113,7 @@ class RemoteProcessClient:
         if facility_count < 0:
             return self.previous_facilities
 
-        facilities = []
-
-        for _ in range(facility_count):
-            facilities.append(self.read_facility())
-
+        facilities = [self.read_facility() for _ in range(facility_count)]
         self.previous_facilities = facilities
         return facilities
 
@@ -131,25 +130,21 @@ class RemoteProcessClient:
         if not self.read_boolean():
             return None
 
+        byte_array = self.read_bytes(565)
+        game = struct.unpack(
+            RemoteProcessClient.BYTE_ORDER_FORMAT_STRING + "qi2db9i19di4d7i4d7i2d3i2di4d7i4d6i4d2i2di", byte_array)
+
         return Game(
-            self.read_long(), self.read_int(), self.read_double(), self.read_double(), self.read_boolean(),
-            self.read_int(), self.read_int(), self.read_int(), self.read_int(), self.read_int(), self.read_int(),
-            self.read_int(), self.read_int(), self.read_int(), self.read_double(), self.read_double(),
-            self.read_double(), self.read_double(), self.read_double(), self.read_double(), self.read_double(),
-            self.read_double(), self.read_double(), self.read_double(), self.read_double(), self.read_double(),
-            self.read_double(), self.read_double(), self.read_double(), self.read_double(), self.read_double(),
-            self.read_double(), self.read_double(), self.read_int(), self.read_double(), self.read_double(),
-            self.read_double(), self.read_double(), self.read_int(), self.read_int(), self.read_int(), self.read_int(),
-            self.read_int(), self.read_int(), self.read_int(), self.read_double(), self.read_double(),
-            self.read_double(), self.read_double(), self.read_int(), self.read_int(), self.read_int(), self.read_int(),
-            self.read_int(), self.read_int(), self.read_int(), self.read_double(), self.read_double(), self.read_int(),
-            self.read_int(), self.read_int(), self.read_double(), self.read_double(), self.read_int(),
-            self.read_double(), self.read_double(), self.read_double(), self.read_double(), self.read_int(),
-            self.read_int(), self.read_int(), self.read_int(), self.read_int(), self.read_int(), self.read_int(),
-            self.read_double(), self.read_double(), self.read_double(), self.read_double(), self.read_int(),
-            self.read_int(), self.read_int(), self.read_int(), self.read_int(), self.read_int(), self.read_double(),
-            self.read_double(), self.read_double(), self.read_double(), self.read_int(), self.read_int(),
-            self.read_double(), self.read_double(), self.read_int()
+            game[0], game[1], game[2], game[3], game[4] != 0, game[5], game[6], game[7], game[8], game[9], game[10],
+            game[11], game[12], game[13], game[14], game[15], game[16], game[17], game[18], game[19], game[20],
+            game[21], game[22], game[23], game[24], game[25], game[26], game[27], game[28], game[29], game[30],
+            game[31], game[32], game[33], game[34], game[35], game[36], game[37], game[38], game[39], game[40],
+            game[41], game[42], game[43], game[44], game[45], game[46], game[47], game[48], game[49], game[50],
+            game[51], game[52], game[53], game[54], game[55], game[56], game[57], game[58], game[59], game[60],
+            game[61], game[62], game[63], game[64], game[65], game[66], game[67], game[68], game[69], game[70],
+            game[71], game[72], game[73], game[74], game[75], game[76], game[77], game[78], game[79], game[80],
+            game[81], game[82], game[83], game[84], game[85], game[86], game[87], game[88], game[89], game[90],
+            game[91], game[92], game[93]
         )
 
     def write_game(self, game):
@@ -258,12 +253,7 @@ class RemoteProcessClient:
         if game_count < 0:
             return None
 
-        games = []
-
-        for _ in range(game_count):
-            games.append(self.read_game())
-
-        return games
+        return [self.read_game() for _ in range(game_count)]
 
     def write_games(self, games):
         if games is None:
@@ -314,9 +304,12 @@ class RemoteProcessClient:
         if flag == 127:
             return self.previous_player_by_id[self.read_long()]
 
+        byte_array = self.read_bytes(50)
+        player = struct.unpack(RemoteProcessClient.BYTE_ORDER_FORMAT_STRING + "q2b3iqi2d", byte_array)
+
         player = Player(
-            self.read_long(), self.read_boolean(), self.read_boolean(), self.read_int(), self.read_int(),
-            self.read_int(), self.read_long(), self.read_int(), self.read_double(), self.read_double()
+            player[0], player[1] != 0, player[2] != 0, player[3], player[4], player[5], player[6], player[7], player[8],
+            player[9]
         )
         self.previous_player_by_id[player.id] = player
         return player
@@ -343,11 +336,7 @@ class RemoteProcessClient:
         if player_count < 0:
             return self.previous_players
 
-        players = []
-
-        for _ in range(player_count):
-            players.append(self.read_player())
-
+        players = [self.read_player() for _ in range(player_count)]
         self.previous_players = players
         return players
 
@@ -380,12 +369,7 @@ class RemoteProcessClient:
         if player_context_count < 0:
             return None
 
-        player_contexts = []
-
-        for _ in range(player_context_count):
-            player_contexts.append(self.read_player_context())
-
-        return player_contexts
+        return [self.read_player_context() for _ in range(player_context_count)]
 
     def write_player_contexts(self, player_contexts):
         if player_contexts is None:
@@ -400,12 +384,14 @@ class RemoteProcessClient:
         if not self.read_boolean():
             return None
 
+        byte_array = self.read_bytes(128)
+        vehicle = struct.unpack(RemoteProcessClient.BYTE_ORDER_FORMAT_STRING + "q3dq2i7d6i", byte_array)
+
         return Vehicle(
-            self.read_long(), self.read_double(), self.read_double(), self.read_double(), self.read_long(),
-            self.read_int(), self.read_int(), self.read_double(), self.read_double(), self.read_double(),
-            self.read_double(), self.read_double(), self.read_double(), self.read_double(), self.read_int(),
-            self.read_int(), self.read_int(), self.read_int(), self.read_int(), self.read_int(),
-            self.read_enum(VehicleType), self.read_boolean(), self.read_boolean(), self.read_ints()
+            vehicle[0], vehicle[1], vehicle[2], vehicle[3], vehicle[4], vehicle[5], vehicle[6], vehicle[7], vehicle[8],
+            vehicle[9], vehicle[10], vehicle[11], vehicle[12], vehicle[13], vehicle[14], vehicle[15], vehicle[16],
+            vehicle[17], vehicle[18], vehicle[19], self.read_enum(VehicleType), self.read_boolean(),
+            self.read_boolean(), self.read_ints()
         )
 
     def write_vehicle(self, vehicle):
@@ -444,12 +430,7 @@ class RemoteProcessClient:
         if vehicle_count < 0:
             return None
 
-        vehicles = []
-
-        for _ in range(vehicle_count):
-            vehicles.append(self.read_vehicle())
-
-        return vehicles
+        return [self.read_vehicle() for _ in range(vehicle_count)]
 
     def write_vehicles(self, vehicles):
         if vehicles is None:
@@ -464,9 +445,12 @@ class RemoteProcessClient:
         if not self.read_boolean():
             return None
 
+        byte_array = self.read_bytes(33)
+        vehicle_update = struct.unpack(RemoteProcessClient.BYTE_ORDER_FORMAT_STRING + "q2d2ib", byte_array)
+
         return VehicleUpdate(
-            self.read_long(), self.read_double(), self.read_double(), self.read_int(), self.read_int(),
-            self.read_boolean(), self.read_ints()
+            vehicle_update[0], vehicle_update[1], vehicle_update[2], vehicle_update[3], vehicle_update[4],
+            vehicle_update[5] != 0, self.read_ints()
         )
 
     def write_vehicle_update(self, vehicle_update):
@@ -488,12 +472,7 @@ class RemoteProcessClient:
         if vehicle_update_count < 0:
             return None
 
-        vehicle_updates = []
-
-        for _ in range(vehicle_update_count):
-            vehicle_updates.append(self.read_vehicle_update())
-
-        return vehicle_updates
+        return [self.read_vehicle_update() for _ in range(vehicle_update_count)]
 
     def write_vehicle_updates(self, vehicle_updates):
         if vehicle_updates is None:
@@ -508,10 +487,13 @@ class RemoteProcessClient:
         if not self.read_boolean():
             return None
 
+        byte_array = self.read_bytes(24)
+        world = struct.unpack(RemoteProcessClient.BYTE_ORDER_FORMAT_STRING + "2i2d", byte_array)
+
         return World(
-            self.read_int(), self.read_int(), self.read_double(), self.read_double(), self.read_players(),
-            self.read_vehicles(), self.read_vehicle_updates(), self.read_terrain_by_cell_x_y(),
-            self.read_weather_by_cell_x_y(), self.read_facilities()
+            world[0], world[1], world[2], world[3], self.read_players(), self.read_vehicles(),
+            self.read_vehicle_updates(), self.read_terrain_by_cell_x_y(), self.read_weather_by_cell_x_y(),
+            self.read_facilities()
         )
 
     def write_world(self, world):
@@ -536,12 +518,7 @@ class RemoteProcessClient:
         if world_count < 0:
             return None
 
-        worlds = []
-
-        for _ in range(world_count):
-            worlds.append(self.read_world())
-
-        return worlds
+        return [self.read_world() for _ in range(world_count)]
 
     def write_worlds(self, worlds):
         if worlds is None:
@@ -596,27 +573,11 @@ class RemoteProcessClient:
 
     def read_enums(self, enum_class):
         count = self.read_int()
-        if count < 0:
-            return None
-
-        enums = []
-
-        for _ in range(count):
-            enums.append(self.read_enum(enum_class))
-
-        return enums
+        return None if count < 0 else [self.read_enum(enum_class) for _ in range(count)]
 
     def read_enums_2d(self, enum_class):
         count = self.read_int()
-        if count < 0:
-            return None
-
-        enums_2d = []
-
-        for _ in range(count):
-            enums_2d.append(self.read_enums(enum_class))
-
-        return enums_2d
+        return None if count < 0 else [self.read_enums(enum_class) for _ in range(count)]
 
     def write_enum(self, value):
         self.write_bytes(struct.pack(
@@ -686,22 +647,15 @@ class RemoteProcessClient:
 
         ints = []
 
-        for _ in range(count):
-            ints.append(self.read_int())
+        if count > 0:
+            byte_array = self.read_bytes(RemoteProcessClient.INTEGER_SIZE_BYTES * count)
+            ints.extend(struct.unpack(RemoteProcessClient.BYTE_ORDER_FORMAT_STRING + str(count) + "i", byte_array))
 
         return ints
 
     def read_ints_2d(self):
         count = self.read_int()
-        if count < 0:
-            return None
-
-        ints_2d = []
-
-        for _ in range(count):
-            ints_2d.append(self.read_ints())
-
-        return ints_2d
+        return None if count < 0 else [self.read_ints() for _ in range(count)]
 
     def write_int(self, value):
         self.write_bytes(struct.pack(RemoteProcessClient.INT_FORMAT_STRING, value))
@@ -739,16 +693,26 @@ class RemoteProcessClient:
         self.write_bytes(struct.pack(RemoteProcessClient.DOUBLE_FORMAT_STRING, value))
 
     def read_bytes(self, byte_count):
-        byte_array = bytes()
+        if len(self.read_buffer) - self.read_index < byte_count:
+            self.read_buffer = self.read_buffer[self.read_index:]
+            self.read_index = 0
 
-        while len(byte_array) < byte_count:
-            chunk = self.socket.recv(byte_count - len(byte_array))
+        while len(self.read_buffer) - self.read_index < byte_count:
+            chunk = self.socket.recv(max(
+                RemoteProcessClient.BUFFER_SIZE_BYTES - len(self.read_buffer),
+                byte_count - len(self.read_buffer) + self.read_index
+            ))
 
             if not len(chunk):
-                raise IOError("Can't read %s bytes from input stream." % str(byte_count))
+                break
 
-            byte_array += chunk
+            self.read_buffer += chunk
 
+        if len(self.read_buffer) - self.read_index < byte_count:
+            raise IOError("Can't read %s bytes from input stream." % str(byte_count))
+
+        byte_array = self.read_buffer[self.read_index:self.read_index + byte_count]
+        self.read_index += byte_count
         return byte_array
 
     def write_bytes(self, byte_array):
