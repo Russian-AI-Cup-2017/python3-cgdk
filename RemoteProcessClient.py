@@ -1,4 +1,5 @@
-import _socket
+import io
+import socket
 import struct
 
 from model.Facility import Facility
@@ -19,23 +20,26 @@ class RemoteProcessClient:
     LITTLE_ENDIAN_BYTE_ORDER = True
     BYTE_ORDER_FORMAT_STRING = "<" if LITTLE_ENDIAN_BYTE_ORDER else ">"
 
-    BYTE_FORMAT_STRING = BYTE_ORDER_FORMAT_STRING + "b"
-    INT_FORMAT_STRING = BYTE_ORDER_FORMAT_STRING + "i"
-    LONG_FORMAT_STRING = BYTE_ORDER_FORMAT_STRING + "q"
-    DOUBLE_FORMAT_STRING = BYTE_ORDER_FORMAT_STRING + "d"
+    BYTE_FORMAT_STRUCT = struct.Struct(BYTE_ORDER_FORMAT_STRING + "b")
+    INT_FORMAT_STRUCT = struct.Struct(BYTE_ORDER_FORMAT_STRING + "i")
+    LONG_FORMAT_STRUCT = struct.Struct(BYTE_ORDER_FORMAT_STRING + "q")
+    DOUBLE_FORMAT_STRUCT = struct.Struct(BYTE_ORDER_FORMAT_STRING + "d")
 
-    SIGNED_BYTE_SIZE_BYTES = 1
     INTEGER_SIZE_BYTES = 4
     LONG_SIZE_BYTES = 8
     DOUBLE_SIZE_BYTES = 8
 
-    def __init__(self, host, port):
-        self.socket = _socket.socket()
-        self.socket.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, True)
-        self.socket.connect((host, port))
+    GAME_STRUCT = struct.Struct(BYTE_ORDER_FORMAT_STRING + "qi2db9i19di4d7i4d7i2d3i2di4d7i4d6i4d2i2di")
+    PLAYER_STRUCT = struct.Struct(BYTE_ORDER_FORMAT_STRING + "q2b3iqi2d")
+    VEHICLE_STRUCT = struct.Struct(BYTE_ORDER_FORMAT_STRING + "q3dq2i7d6i")
+    VEHICLE_UPDATE_STRUCT = struct.Struct(BYTE_ORDER_FORMAT_STRING + "q2d2ib")
+    WORLD_STRUCT = struct.Struct(BYTE_ORDER_FORMAT_STRING + "2i2d")
 
-        self.read_buffer = bytes()
-        self.read_index = 0
+    def __init__(self, host, port):
+        self.socket = socket.socket()
+        self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+        self.socket.connect((host, port))
+        self.buffered_reader = io.BufferedReader(socket.SocketIO(self.socket, 'rb'))
 
         self.previous_players = None
         self.previous_player_by_id = {}
@@ -131,8 +135,7 @@ class RemoteProcessClient:
             return None
 
         byte_array = self.read_bytes(565)
-        game = struct.unpack(
-            RemoteProcessClient.BYTE_ORDER_FORMAT_STRING + "qi2db9i19di4d7i4d7i2d3i2di4d7i4d6i4d2i2di", byte_array)
+        game = RemoteProcessClient.GAME_STRUCT.unpack(byte_array)
 
         return Game(
             game[0], game[1], game[2], game[3], game[4] != 0, game[5], game[6], game[7], game[8], game[9], game[10],
@@ -305,7 +308,7 @@ class RemoteProcessClient:
             return self.previous_player_by_id[self.read_long()]
 
         byte_array = self.read_bytes(50)
-        player = struct.unpack(RemoteProcessClient.BYTE_ORDER_FORMAT_STRING + "q2b3iqi2d", byte_array)
+        player = RemoteProcessClient.PLAYER_STRUCT.unpack(byte_array)
 
         player = Player(
             player[0], player[1] != 0, player[2] != 0, player[3], player[4], player[5], player[6], player[7], player[8],
@@ -385,7 +388,7 @@ class RemoteProcessClient:
             return None
 
         byte_array = self.read_bytes(128)
-        vehicle = struct.unpack(RemoteProcessClient.BYTE_ORDER_FORMAT_STRING + "q3dq2i7d6i", byte_array)
+        vehicle = RemoteProcessClient.VEHICLE_STRUCT.unpack(byte_array)
 
         return Vehicle(
             vehicle[0], vehicle[1], vehicle[2], vehicle[3], vehicle[4], vehicle[5], vehicle[6], vehicle[7], vehicle[8],
@@ -446,7 +449,7 @@ class RemoteProcessClient:
             return None
 
         byte_array = self.read_bytes(33)
-        vehicle_update = struct.unpack(RemoteProcessClient.BYTE_ORDER_FORMAT_STRING + "q2d2ib", byte_array)
+        vehicle_update = RemoteProcessClient.VEHICLE_UPDATE_STRUCT.unpack(byte_array)
 
         return VehicleUpdate(
             vehicle_update[0], vehicle_update[1], vehicle_update[2], vehicle_update[3], vehicle_update[4],
@@ -488,7 +491,7 @@ class RemoteProcessClient:
             return None
 
         byte_array = self.read_bytes(24)
-        world = struct.unpack(RemoteProcessClient.BYTE_ORDER_FORMAT_STRING + "2i2d", byte_array)
+        world = RemoteProcessClient.WORLD_STRUCT.unpack(byte_array)
 
         return World(
             world[0], world[1], world[2], world[3], self.read_players(), self.read_vehicles(),
@@ -547,8 +550,8 @@ class RemoteProcessClient:
             raise ValueError("Received wrong message [actual=%s, expected=%s]." % (actual_type, expected_type))
 
     def read_enum(self, enum_class):
-        byte_array = self.read_bytes(RemoteProcessClient.SIGNED_BYTE_SIZE_BYTES)
-        value = struct.unpack(RemoteProcessClient.BYTE_FORMAT_STRING, byte_array)[0]
+        byte_array = self.read_bytes(1)
+        value = RemoteProcessClient.BYTE_FORMAT_STRUCT.unpack(byte_array)[0]
 
         for enum_key, enum_value in enum_class.__dict__.items():
             if not str(enum_key).startswith("__") and value == enum_value:
@@ -580,9 +583,7 @@ class RemoteProcessClient:
         return None if count < 0 else [self.read_enums(enum_class) for _ in range(count)]
 
     def write_enum(self, value):
-        self.write_bytes(struct.pack(
-            RemoteProcessClient.BYTE_FORMAT_STRING, -1 if value is None else value
-        ))
+        self.write_bytes(RemoteProcessClient.BYTE_FORMAT_STRUCT.pack(-1 if value is None else value))
 
     def write_enums(self, enums):
         if enums is None:
@@ -621,24 +622,24 @@ class RemoteProcessClient:
         self.write_bytes(byte_array)
 
     def read_signed_byte(self):
-        byte_array = self.read_bytes(RemoteProcessClient.SIGNED_BYTE_SIZE_BYTES)
-        return struct.unpack(RemoteProcessClient.BYTE_FORMAT_STRING, byte_array)[0]
+        byte_array = self.read_bytes(1)
+        return RemoteProcessClient.BYTE_FORMAT_STRUCT.unpack(byte_array)[0]
 
     def read_boolean(self):
-        return self.read_signed_byte() != 0
+        return self.read_bytes(1) != b'\0'
 
     def read_boolean_array(self, count):
-        byte_array = self.read_bytes(count * RemoteProcessClient.SIGNED_BYTE_SIZE_BYTES)
+        byte_array = self.read_bytes(count)
         unpacked_bytes = struct.unpack(RemoteProcessClient.BYTE_ORDER_FORMAT_STRING + str(count) + "b", byte_array)
 
         return [unpacked_bytes[i] != 0 for i in range(count)]
 
     def write_boolean(self, value):
-        self.write_bytes(struct.pack(RemoteProcessClient.BYTE_FORMAT_STRING, 1 if value else 0))
+        self.write_bytes(RemoteProcessClient.BYTE_FORMAT_STRUCT.pack(1 if value else 0))
 
     def read_int(self):
         byte_array = self.read_bytes(RemoteProcessClient.INTEGER_SIZE_BYTES)
-        return struct.unpack(RemoteProcessClient.INT_FORMAT_STRING, byte_array)[0]
+        return RemoteProcessClient.INT_FORMAT_STRUCT.unpack(byte_array)[0]
 
     def read_ints(self):
         count = self.read_int()
@@ -658,7 +659,7 @@ class RemoteProcessClient:
         return None if count < 0 else [self.read_ints() for _ in range(count)]
 
     def write_int(self, value):
-        self.write_bytes(struct.pack(RemoteProcessClient.INT_FORMAT_STRING, value))
+        self.write_bytes(RemoteProcessClient.INT_FORMAT_STRUCT.pack(value))
 
     def write_ints(self, ints):
         if ints is None:
@@ -680,40 +681,20 @@ class RemoteProcessClient:
 
     def read_long(self):
         byte_array = self.read_bytes(RemoteProcessClient.LONG_SIZE_BYTES)
-        return struct.unpack(RemoteProcessClient.LONG_FORMAT_STRING, byte_array)[0]
+        return RemoteProcessClient.LONG_FORMAT_STRUCT.unpack(byte_array)[0]
 
     def write_long(self, value):
-        self.write_bytes(struct.pack(RemoteProcessClient.LONG_FORMAT_STRING, value))
+        self.write_bytes(RemoteProcessClient.LONG_FORMAT_STRUCT.pack(value))
 
     def read_double(self):
         byte_array = self.read_bytes(RemoteProcessClient.DOUBLE_SIZE_BYTES)
-        return struct.unpack(RemoteProcessClient.DOUBLE_FORMAT_STRING, byte_array)[0]
+        return RemoteProcessClient.DOUBLE_FORMAT_STRUCT.unpack(byte_array)[0]
 
     def write_double(self, value):
-        self.write_bytes(struct.pack(RemoteProcessClient.DOUBLE_FORMAT_STRING, value))
+        self.write_bytes(RemoteProcessClient.DOUBLE_FORMAT_STRUCT.pack(value))
 
     def read_bytes(self, byte_count):
-        if len(self.read_buffer) - self.read_index < byte_count:
-            self.read_buffer = self.read_buffer[self.read_index:]
-            self.read_index = 0
-
-        while len(self.read_buffer) - self.read_index < byte_count:
-            chunk = self.socket.recv(max(
-                RemoteProcessClient.BUFFER_SIZE_BYTES - len(self.read_buffer),
-                byte_count - len(self.read_buffer) + self.read_index
-            ))
-
-            if not len(chunk):
-                break
-
-            self.read_buffer += chunk
-
-        if len(self.read_buffer) - self.read_index < byte_count:
-            raise IOError("Can't read %s bytes from input stream." % str(byte_count))
-
-        byte_array = self.read_buffer[self.read_index:self.read_index + byte_count]
-        self.read_index += byte_count
-        return byte_array
+        return self.buffered_reader.read(byte_count)
 
     def write_bytes(self, byte_array):
         self.socket.sendall(byte_array)
