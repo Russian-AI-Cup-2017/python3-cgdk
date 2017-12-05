@@ -134,8 +134,7 @@ class RemoteProcessClient:
         if not self.read_boolean():
             return None
 
-        byte_array = self.read_bytes(565)
-        game = RemoteProcessClient.GAME_STRUCT.unpack(byte_array)
+        game = RemoteProcessClient.GAME_STRUCT.unpack(self.read_bytes(565))
 
         return Game(
             game[0], game[1], game[2], game[3], game[4] != 0, game[5], game[6], game[7], game[8], game[9], game[10],
@@ -307,8 +306,7 @@ class RemoteProcessClient:
         if flag == 127:
             return self.previous_player_by_id[self.read_long()]
 
-        byte_array = self.read_bytes(50)
-        player = RemoteProcessClient.PLAYER_STRUCT.unpack(byte_array)
+        player = RemoteProcessClient.PLAYER_STRUCT.unpack(self.read_bytes(50))
 
         player = Player(
             player[0], player[1] != 0, player[2] != 0, player[3], player[4], player[5], player[6], player[7], player[8],
@@ -387,8 +385,7 @@ class RemoteProcessClient:
         if not self.read_boolean():
             return None
 
-        byte_array = self.read_bytes(128)
-        vehicle = RemoteProcessClient.VEHICLE_STRUCT.unpack(byte_array)
+        vehicle = RemoteProcessClient.VEHICLE_STRUCT.unpack(self.read_bytes(128))
 
         return Vehicle(
             vehicle[0], vehicle[1], vehicle[2], vehicle[3], vehicle[4], vehicle[5], vehicle[6], vehicle[7], vehicle[8],
@@ -448,8 +445,7 @@ class RemoteProcessClient:
         if not self.read_boolean():
             return None
 
-        byte_array = self.read_bytes(33)
-        vehicle_update = RemoteProcessClient.VEHICLE_UPDATE_STRUCT.unpack(byte_array)
+        vehicle_update = RemoteProcessClient.VEHICLE_UPDATE_STRUCT.unpack(self.read_bytes(33))
 
         return VehicleUpdate(
             vehicle_update[0], vehicle_update[1], vehicle_update[2], vehicle_update[3], vehicle_update[4],
@@ -490,8 +486,7 @@ class RemoteProcessClient:
         if not self.read_boolean():
             return None
 
-        byte_array = self.read_bytes(24)
-        world = RemoteProcessClient.WORLD_STRUCT.unpack(byte_array)
+        world = RemoteProcessClient.WORLD_STRUCT.unpack(self.read_bytes(24))
 
         return World(
             world[0], world[1], world[2], world[3], self.read_players(), self.read_vehicles(),
